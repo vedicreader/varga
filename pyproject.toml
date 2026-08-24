@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "varga"
+dynamic = ["version"]
+description = "what kind of thing a document is, and the fields it holds: cue-scored doctypes and schema-constrained extraction"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "Apache-2.0"}
+authors = [{name = "Karthik", email = "karthik.rajgopal@hotmail.com"}]
+keywords = ['nbdev', 'document classification', 'information extraction', 'structured output',
+            'invoice', 'doctype', 'schema']
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+]
+dependencies = [
+    "fastcore>=1.12.31",
+    "rahasya>=0.0.1",
+]
+
+[project.optional-dependencies]
+# `structured` needs a model to ask; `signals` and `guess_type` need neither
+llm = ["rishi>=0.1.2"]
+# keyphrases in `signals().ents`; display only, no doctype depends on them
+keyphrase = ["litesearch>=0.1.25"]
+
+[project.urls]
+Repository = "https://github.com/vedicreader/varga"
+Documentation = "https://vedicreader.github.io/varga/"
+
+[project.entry-points.nbdev]
+varga = "varga._modidx:d"
+
+[tool.nbdev]
+
+[tool.hatch.build.targets.wheel]
+packages = ["varga"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/varga", "/README.md", "/pyproject.toml"]
+
+[tool.hatch.version]
+path = "varga/__init__.py"
+
+[dependency-groups]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.4", "notebook>=7.6.1", "rishi>=0.1.2", "litesearch>=0.1.25"]

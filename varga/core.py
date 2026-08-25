@@ -56,6 +56,7 @@ _LAW_INST = re.compile(
     r'(?:Act(?:\s+\d{4})?|Regulations?\b|Directive\b|Ordinance\b|Statute\b|Treaty\b|Convention\b|Amendment\b)'
 )
 
+# %% ../nbs/00_core.ipynb #b9d6a10c
 def _noun_ents(text:str, limit:int=40) -> L:
     'ORG, PERSON and LAW entities via regex; no model weight.'
     seen, out = set(), L()
@@ -63,17 +64,23 @@ def _noun_ents(text:str, limit:int=40) -> L:
         n = re.sub(r'\s+', ' ', t.strip())[:60]
         k = n.lower()
         if n and k not in seen: seen.add(k); out.append((n, label))
-    for m in _ORG_SUFF.finditer(text): _add(m.group(0).strip(), 'ORG')
-    for m in _PERSON_HON.finditer(text): _add(m.group(1), 'PERSON')
+    persons = list(_PERSON_HON.finditer(text))
+    for m in _ORG_SUFF.finditer(text):
+        start = max((p.end() for p in persons if p.start() < m.end() and p.end() > m.start()), default=m.start())
+        org = re.sub(r'^\s*(?:of|at|from)\s+', '', text[start:m.end()])
+        _add(org, 'ORG')
+    for m in persons: _add(m.group(1), 'PERSON')
     for m in _LAW_INST.finditer(text): _add(m.group(1).strip(), 'LAW')
     return out[:limit]
 
+# %% ../nbs/00_core.ipynb #24e79db7
 def _keyphrases(text:str) -> tuple:
     'litesearch keyphrases when it is installed, nothing when it is not. Display only: `cue_scores` reads the ORG/PERSON/LAW labels, never these.'
     try: from litesearch import text_entities
     except ImportError: return ()
     return text_entities(text)
 
+# %% ../nbs/00_core.ipynb #ef3ce3c0
 def signals(text:str,            # the document text
             ner:bool=True,       # run entity extraction (noun entities + keyphrases)
             limit:int=20,        # entities kept

@@ -14,7 +14,7 @@ from dataclasses import dataclass, fields, is_dataclass, make_dataclass, asdict
 from typing import get_origin
 from fastcore.all import AttrDict, L
 
-# %% ../nbs/01_schema.ipynb #36192e1e
+# %% ../nbs/01_schema.ipynb #a125d2cb
 @dataclass
 class Invoice:
     """An invoice, purchase order or quotation.
@@ -36,6 +36,7 @@ class Invoice:
     payment_terms:str = ''
     items:list[dict] = None
 
+# %% ../nbs/01_schema.ipynb #0bb49294
 @dataclass
 class Receipt:
     """A receipt for a completed payment.
@@ -52,6 +53,7 @@ class Receipt:
     paid_with:str = ''
     items:list[dict] = None
 
+# %% ../nbs/01_schema.ipynb #5bb4dff8
 @dataclass
 class Catalogue:
     """A product catalogue, price list or listing page.
@@ -65,6 +67,7 @@ class Catalogue:
     n_products:int = 0
     products:list[dict] = None
 
+# %% ../nbs/01_schema.ipynb #57fbc6cd
 @dataclass
 class Contract:
     """An agreement between parties.
@@ -80,6 +83,7 @@ class Contract:
     termination:str = ''
     obligations:list[str] = None
 
+# %% ../nbs/01_schema.ipynb #24e91acd
 @dataclass
 class Resume:
     """One person's CV.
@@ -96,6 +100,7 @@ class Resume:
     experience:list[dict] = None
     education:list[dict] = None
 
+# %% ../nbs/01_schema.ipynb #e81c81f6
 @dataclass
 class Paper:
     """An academic paper. authors: names in order. findings: the claims the paper actually makes."""
@@ -109,6 +114,7 @@ class Paper:
     findings:list[str] = None
     limitations:list[str] = None
 
+# %% ../nbs/01_schema.ipynb #17cbf009
 @dataclass
 class MeetingNotes:
     """Notes from one meeting. actions: one entry per commitment, each {what, owner, due}."""
@@ -119,6 +125,7 @@ class MeetingNotes:
     decisions:list[str] = None
     actions:list[dict] = None
 
+# %% ../nbs/01_schema.ipynb #70ed9b52
 @dataclass
 class Summary:
     """What one document says, when no more specific shape fits.
@@ -133,6 +140,7 @@ class Summary:
     numbers:list[str] = None
     open_questions:list[str] = None
 
+# %% ../nbs/01_schema.ipynb #36192e1e
 # PO and quotation share the Invoice schema
 SCHEMAS = dict(invoice=Invoice, purchase_order=Invoice, quote=Invoice, receipt=Receipt,
                catalogue=Catalogue, contract=Contract, resume=Resume, paper=Paper,
@@ -143,6 +151,7 @@ FIELD_TYPES = {'str':str, 'text':str, 'int':int, 'float':float, 'number':float, 
                'list[str]':list[str], 'list[dict]':list[dict]}
 _DFLT = {str: '', int: 0, float: 0.0, bool: False}
 
+# %% ../nbs/01_schema.ipynb #7ab433ab
 def dyn_schema(spec,                    # 'vendor:str, total:float, items:dicts', or {'vendor':'str'}, or ['vendor']
                name:str='Extracted',    # class name, which the model sees
                doc:str=None,            # class docstring, which the model also sees
@@ -159,18 +168,21 @@ def dyn_schema(spec,                    # 'vendor:str, total:float, items:dicts'
     return make_dataclass(re.sub(r'\W', '', name) or 'Extracted', flds,
                           namespace=dict(__doc__=doc or 'The fields to pull out of the document.'))
 
+# %% ../nbs/01_schema.ipynb #86058550
 def as_schema(spec, name:str='Extracted', doc:str=None) -> type:
     'Whatever names a shape, as a dataclass: a `SCHEMAS` key, a dataclass, or a `dyn_schema` spec.'
     if is_dataclass(spec): return spec
     if isinstance(spec, str) and spec.strip() in SCHEMAS: return SCHEMAS[spec.strip()]
     return dyn_schema(spec, name=name, doc=doc)
 
+# %% ../nbs/01_schema.ipynb #393a81bb
 def _norm(obj, schema) -> dict:
     "A structured reply as a plain dict, with the `None` a list field defaults to turned back into `[]`."
     d = asdict(obj) if is_dataclass(obj) and not isinstance(obj, type) else dict(obj or {})
     lists = {f.name for f in fields(schema) if f.type is list or get_origin(f.type) is list}
     return {k: ([] if v is None and k in lists else v) for k, v in d.items()}
 
+# %% ../nbs/01_schema.ipynb #d62421fb
 def schema_str(schema) -> str:
     "A schema written out for a model to read: its docstring, then `name: type` per field."
     def ty(t):
@@ -180,6 +192,7 @@ def schema_str(schema) -> str:
     return ((schema.__doc__ or '').strip() + '\n\n{\n'
             + ',\n'.join(f'  "{f.name}": {ty(f.type)}' for f in fields(schema)) + '\n}')
 
+# %% ../nbs/01_schema.ipynb #3dae58c8
 def _split_reasoning(text:str) -> str:
     "The answer with any reasoning stripped: rishi's `split_think`, plus the *closing*-only tag an MLX prefill leaves."
     from rishi.core import split_think
@@ -187,6 +200,7 @@ def _split_reasoning(text:str) -> str:
     if '</think>' in text: text = text.partition('</think>')[2]
     return text.strip()
 
+# %% ../nbs/01_schema.ipynb #bf7b950f
 def _json_reply(ch, prompt:str, schema, sp:str='') -> object:
     'Ask for the shape as a JSON object in prose and rebuild it, with the model left unconstrained.'
     ch.hist = []
@@ -198,6 +212,7 @@ def _json_reply(ch, prompt:str, schema, sp:str='') -> object:
     nms = {f.name for f in fields(schema)}
     return schema(**{k: v for k, v in d.items() if k in nms})
 
+# %% ../nbs/01_schema.ipynb #875af6df
 def structured(ch,                # a `rishi.Chat`, e.g. from `new_chat`
                prompt:str,        # the document and the instruction
                schema,            # the dataclass the reply must fill

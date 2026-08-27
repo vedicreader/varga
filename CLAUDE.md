@@ -9,8 +9,9 @@ run `nbdev_export`, never edit the `.py`. CI runs `nbdev_export` and fails on a 
 It needs `fastcore` and `rahasya` and nothing else, and it must stay that way: the point of
 `decisive` is that a caller can skip the model.
 
-`varga.schema` answers "what fields does it hold". `structured` needs `rishi`, which is an extra.
-Import it inside the function, not at module scope.
+`varga.schema` answers "what fields does it hold". `structured` needs `rishi`. Import it inside
+the function, not at module scope: there are no extras here, so an optional package is one that
+is imported when it is used and raises saying what to install.
 
 ## Dependencies point one way
 

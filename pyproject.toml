@@ -27,12 +27,6 @@ dependencies = [
     "rahasya>=0.0.1",
 ]
 
-[project.optional-dependencies]
-# `structured` needs a model to ask; `signals` and `guess_type` need neither
-llm = ["rishi>=0.1.2"]
-# keyphrases in `signals().ents`; display only, no doctype depends on them
-keyphrase = ["litesearch>=0.1.25"]
-
 [project.urls]
 Repository = "https://github.com/vedicreader/varga"
 Documentation = "https://vedicreader.github.io/varga/"

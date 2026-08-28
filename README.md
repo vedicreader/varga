@@ -79,9 +79,9 @@ falls back to a JSON reply when that raises, so a model without tool calling sti
 len(DOCTYPES), sorted(DOCTYPES)
 ```
 
-Ten of them are work-product labels — `proposal`, `presentation`, `requirements_spec`,
+Ten of them are work-product labels: `proposal`, `presentation`, `requirements_spec`,
 `technical_design`, `regulatory_guidance`, `procedure`, `qa_artifact`, `roadmap`, `claim`,
-`clinical_record` — and each is decisive on its own text without a model. Prose that merely
+`clinical_record`, and each is decisive on its own text without a model. Prose that merely
 borrows the vocabulary scores under 0.2 against every one of them.
 
 ## What it depends on

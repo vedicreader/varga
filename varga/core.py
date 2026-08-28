@@ -37,10 +37,6 @@ SIGNALS = dict(
     blank    = r'_{4,}|\[ ?\]',
 )
 _SIG = {k: re.compile(v, re.I|re.M) for k, v in SIGNALS.items()}
-# entity extraction runs on the head of a document (`NER_CHARS`, from rahasya): that is where
-# its type is decided
-
-# handrolled entity extraction: ORG by legal suffix, PERSON by honorific, LAW by instrument type
 _ORG_SUFF = re.compile(
     r'(?<![a-z,\.])([A-Z][A-Za-z0-9\'\-& ]{1,50}?)\s+'
     r'(?:Ltd\.?|Limited|Corp\.?|Corporation|Inc\.?|LLC|LLP|GmbH|AG|SA|NV|BV|Pty\.?|PLC'
@@ -49,8 +45,6 @@ _ORG_SUFF = re.compile(
     r'|Bank\b|Fund\b|Trust\b|Council\b|Authority\b|Commission\b'
     r'|Ministry\b|Department\b|Agency\b|Bureau\b)\b'
 )
-# the PERSON arm is rahasya's, so a name means the same thing to the doctype scorer and to the
-# privacy gate. One regex, measured once.
 _PERSON_HON = PERSON_HON
 _LAW_INST = re.compile(
     r'\b([A-Z][A-Za-z ]{2,50}?)\s+'

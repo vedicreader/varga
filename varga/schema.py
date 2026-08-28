@@ -187,7 +187,6 @@ def schema_str(schema) -> str:
     "A schema written out for a model to read: its docstring, then `name: type` per field."
     def ty(t):
         if isinstance(t, str): return t
-        # `list[dict].__name__` is just 'list'; the parameter is the half the model needs
         return str(t).replace('typing.', '') if get_origin(t) else getattr(t, '__name__', str(t))
     return ((schema.__doc__ or '').strip() + '\n\n{\n'
             + ',\n'.join(f'  "{f.name}": {ty(f.type)}' for f in fields(schema)) + '\n}')
@@ -195,7 +194,7 @@ def schema_str(schema) -> str:
 # %% ../nbs/01_schema.ipynb #3dae58c8
 def _split_reasoning(text:str) -> str:
     "The answer with any reasoning stripped: rishi's `split_think`, plus the *closing*-only tag an MLX prefill leaves."
-    from rishi.core import split_think
+    from urai import split_think
     text, _ = split_think(text)
     if '</think>' in text: text = text.partition('</think>')[2]
     return text.strip()
@@ -204,10 +203,9 @@ def _split_reasoning(text:str) -> str:
 def _json_reply(ch, prompt:str, schema, sp:str='') -> object:
     'Ask for the shape as a JSON object in prose and rebuild it, with the model left unconstrained.'
     ch.hist = []
-    from rishi.core import resp_text
+    from urai import resp_text, extract_fence
     txt = resp_text(ch(f'{sp}\n\n{prompt}\n\nReply with only a JSON object in a ```json fence, with '
                        f'exactly these keys and types:\n\n{schema_str(schema)}'))
-    from rishi.core import extract_fence
     d = json.loads(extract_fence(_split_reasoning(txt), 'json'))
     nms = {f.name for f in fields(schema)}
     return schema(**{k: v for k, v in d.items() if k in nms})

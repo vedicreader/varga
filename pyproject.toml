@@ -46,4 +46,4 @@ include = ["/varga", "/README.md", "/pyproject.toml"]
 path = "varga/__init__.py"
 
 [dependency-groups]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.4", "notebook>=7.6.1", "rishi>=0.1.2", "litesearch>=0.1.25"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.4", "notebook>=7.6.1", "rishi>=0.1.2", "vruksha>=0.0.1"]

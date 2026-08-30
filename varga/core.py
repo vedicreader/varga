@@ -70,8 +70,8 @@ def _noun_ents(text:str, limit:int=40) -> L:
 
 # %% ../nbs/00_core.ipynb #24e79db7
 def _keyphrases(text:str) -> tuple:
-    'litesearch keyphrases when it is installed, nothing when it is not. Display only: `cue_scores` reads the ORG/PERSON/LAW labels, never these.'
-    try: from litesearch import text_entities
+    'vruksha keyphrases when it is installed, nothing when it is not. Display only: `cue_scores` reads the ORG/PERSON/LAW labels, never these.'
+    try: from vruksha import text_entities
     except ImportError: return ()
     return text_entities(text)
 

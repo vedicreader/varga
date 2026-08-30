@@ -89,7 +89,7 @@ borrows the vocabulary scores under 0.2 against every one of them.
 `fastcore` and [rahasya](https://github.com/vedicreader/rahasya), for the honorific-anchored
 name regex the entity leg shares with the privacy gate. One definition of what a name is.
 
-`rishi` is needed only by [`structured`](https://vedicreader.github.io/varga/schema.html#structured). `litesearch` adds keyphrases to `signals().ents` and is
+`rishi` is needed only by [`structured`](https://vedicreader.github.io/varga/schema.html#structured). `vruksha` adds keyphrases to `signals().ents` and is
 display only: no doctype score reads them, and [`signals`](https://vedicreader.github.io/varga/core.html#signals) works without it.
 
 ## Development

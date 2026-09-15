@@ -68,34 +68,21 @@ def _noun_ents(text:str, limit:int=40) -> L:
     for m in _LAW_INST.finditer(text): _add(m.group(1).strip(), 'LAW')
     return out[:limit]
 
-# %% ../nbs/00_core.ipynb #24e79db7
-def _keyphrases(text:str) -> tuple:
-    'vruksha keyphrases when it is installed, nothing when it is not. Display only: `cue_scores` reads the ORG/PERSON/LAW labels, never these.'
-    try: from vruksha import text_entities
-    except ImportError: return ()
-    return text_entities(text)
-
 # %% ../nbs/00_core.ipynb #ef3ce3c0
 def signals(text:str,            # the document text
-            ner:bool=True,       # run entity extraction (noun entities + keyphrases)
+            ner:bool=True,       # run entity extraction
             limit:int=20,        # entities kept
 ) -> AttrDict:
     'Countable evidence in one document: `counts` per signal, plus the entities it names.'
     counts = {k: len(p.findall(text or '')) for k, p in _SIG.items()}
-    noun = L(_noun_ents((text or '')[:NER_CHARS]) if ner else ()).map(
+    found = L(_noun_ents((text or '')[:NER_CHARS]) if ner else ()).map(
         lambda t: AttrDict(label=t[1], text=t[0]))
-    kws  = L(_keyphrases((text or '')[:NER_CHARS]) if ner else ()).map(
-        lambda t: AttrDict(label=(t[1] or 'KEYPHRASE').upper(), text=re.sub(r'\s+', ' ', t[0].strip())[:60])
-    ).filter(lambda e: e.text and e.label not in {'ORG', 'PERSON', 'LAW', 'PRODUCT', 'GPE'})
-    found = noun + kws
     labels = dict(Counter(e.label.lower() for e in found))
-    # labels count everything found; limit caps display only (cue_scores reads labels)
-    if noun:
+    if found:
         counts = {k: counts.get(k, 0) + (labels.get(k, 0) if k not in counts else 0)
-                  for k in (*counts, *(l for l in labels if l not in ('keyphrase', 'term')))}
+                  for k in (*counts, *labels)}
     return AttrDict(counts={k: v for k, v in counts.items() if v}, labels=labels,
-                    ents=found.sorted(key=lambda e: e.label in ('KEYPHRASE', 'TERM'))[:limit],
-                    method=('ner+regex' if noun else 'keyphrase+regex' if kws else 'regex'))
+                    ents=found[:limit], method=('ner+regex' if found else 'regex'))
 
 # %% ../nbs/00_core.ipynb #e77bc6be
 DOCTYPES = {

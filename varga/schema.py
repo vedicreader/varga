@@ -357,11 +357,9 @@ def schema_str(schema) -> str:
 
 # %% ../nbs/01_schema.ipynb #3dae58c8
 def _split_reasoning(text:str) -> str:
-    "The answer with any reasoning stripped: rishi's `split_think`, plus the *closing*-only tag an MLX prefill leaves."
+    'The answer with any reasoning stripped.'
     from urai import split_think
-    text, _ = split_think(text)
-    if '</think>' in text: text = text.partition('</think>')[2]
-    return text.strip()
+    return split_think(text)[0].strip()
 
 # %% ../nbs/01_schema.ipynb #bf7b950f
 def _json_reply(ch, prompt:str, schema, sp:str='') -> object:

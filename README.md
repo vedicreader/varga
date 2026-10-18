@@ -11,8 +11,10 @@ second against a shape you name or invent.
 
 ``` sh
 uv add varga            # doctypes; no model, no network
-uv add 'varga[llm]'     # ...and `structured`, which asks one
+uv add varga rishi      # ...and a chat for `structured` to ask
 ```
+
+There are no extras: [`structured`](https://vedicreader.github.io/varga/schema.html#structured) imports what it needs when it is called.
 
 ## What is it
 
@@ -61,8 +63,9 @@ from dataclasses import fields
      'payment_terms',
      'items']
 
-Ten shapes are built in: `invoice`, `purchase_order`, `quote`, `receipt`, `catalogue`,
-`contract`, `resume`, `paper`, `meeting_notes`, `other`. Or write one on the spot:
+Fifteen shapes are built in: `invoice`, `purchase_order`, `quote`, `receipt`, `catalogue`,
+`contract`, `resume`, `paper`, `meeting_notes`, `id_card`, `passport`, `bank_statement`,
+`payslip`, `tax_return`, `other`. Or write one on the spot:
 
 ``` python
 [(f.name, f.type.__name__) for f in fields(as_schema('vendor:str, total:float, items:list'))]
@@ -72,6 +75,10 @@ Ten shapes are built in: `invoice`, `purchase_order`, `quote`, `receipt`, `catal
 
 `structured(chat, prompt, schema)` fills it. It prefers the model’s constrained mode and
 falls back to a JSON reply when that raises, so a model without tool calling still answers.
+
+`structured(..., cite=True)` returns `{field: {value, quote}}`, the quote copied from the
+document, and `locate(fields, pages)` turns each quote into the page and block it came from with
+a string match, not a model.
 
 ## The doctypes
 
@@ -84,13 +91,16 @@ Ten of them are work-product labels: `proposal`, `presentation`, `requirements_s
 `clinical_record`, and each is decisive on its own text without a model. Prose that merely
 borrows the vocabulary scores under 0.2 against every one of them.
 
+Six are sensitive: `id_card`, `passport`, `bank_statement`, `payslip`, `tax_return` and
+`clinical_record`. They are in `SENSITIVE`, and `guess_type(...).sensitive` says when the answer
+is one of them, so a caller can keep that document on the machine.
+
 ## What it depends on
 
 `fastcore` and [rahasya](https://github.com/vedicreader/rahasya), for the honorific-anchored
 name regex the entity leg shares with the privacy gate. One definition of what a name is.
 
-`rishi` is needed only by [`structured`](https://vedicreader.github.io/varga/schema.html#structured). `vruksha` adds keyphrases to `signals().ents` and is
-display only: no doctype score reads them, and [`signals`](https://vedicreader.github.io/varga/core.html#signals) works without it.
+`rishi` is needed only by [`structured`](https://vedicreader.github.io/varga/schema.html#structured), for the chat it is handed and the JSON fallback.
 
 ## Development
 

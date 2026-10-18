@@ -7,11 +7,12 @@ Docs: https://vedicreader.github.io/varga/schema.html.md"""
 # %% auto #0
 __all__ = ['SCHEMAS', 'FIELD_TYPES', 'DATE_FIELDS', 'YEAR_FIELDS', 'MONEY_FIELDS', 'CURRENCIES', 'BLANKS', 'ROW_MONEY',
            'EXTRACT_SP', 'Invoice', 'Receipt', 'Catalogue', 'Contract', 'Resume', 'Paper', 'MeetingNotes', 'Summary',
-           'dyn_schema', 'as_schema', 'date_order', 'iso_date', 'money', 'check_fields', 'schema_str', 'structured']
+           'IdentityDoc', 'Statement', 'dyn_schema', 'as_schema', 'date_order', 'iso_date', 'money', 'check_fields',
+           'schema_str', 'cite_schema', 'structured', 'locate']
 
 # %% ../nbs/01_schema.ipynb #e423da84
 import json, re, warnings
-from dataclasses import dataclass, fields, is_dataclass, make_dataclass, asdict
+from dataclasses import dataclass, fields, is_dataclass, make_dataclass, asdict, MISSING
 from typing import get_origin, get_args
 from fastcore.all import AttrDict, L
 
@@ -141,11 +142,55 @@ class Summary:
     numbers:list[str] = None
     open_questions:list[str] = None
 
+# %% ../nbs/01_schema.ipynb #56f985b2
+@dataclass
+class IdentityDoc:
+    """A passport, identity card, driving licence or residence permit.
+
+    kind: which of those it is. number: the document number as printed. Dates are ISO (1990-03-04)."""
+    kind:str = ''
+    number:str = ''
+    surname:str = ''
+    given_names:str = ''
+    date_of_birth:str = ''
+    place_of_birth:str = ''
+    sex:str = ''
+    nationality:str = ''
+    address:str = ''
+    issuer:str = ''
+    issued:str = ''
+    expiry_date:str = ''
+
+# %% ../nbs/01_schema.ipynb #07a026ee
+@dataclass
+class Statement:
+    """A bank statement, payslip or tax return: one party's money over one period.
+
+    account: the account, employee or taxpayer reference as printed. lines: one entry per transaction
+    or pay line, each {date, description, amount, balance}. Amounts are bare numbers; dates are ISO."""
+    kind:str = ''
+    issuer:str = ''
+    holder:str = ''
+    account:str = ''
+    period_start:str = ''
+    period_end:str = ''
+    date:str = ''
+    currency:str = ''
+    opening_balance:float = 0
+    closing_balance:float = 0
+    gross:float = 0
+    deductions:float = 0
+    tax:float = 0
+    net:float = 0
+    total:float = 0
+    lines:list[dict] = None
+
 # %% ../nbs/01_schema.ipynb #36192e1e
 # PO and quotation share the Invoice schema
 SCHEMAS = dict(invoice=Invoice, purchase_order=Invoice, quote=Invoice, receipt=Receipt,
                catalogue=Catalogue, contract=Contract, resume=Resume, paper=Paper,
-               meeting_notes=MeetingNotes, other=Summary)
+               meeting_notes=MeetingNotes, other=Summary, id_card=IdentityDoc, passport=IdentityDoc,
+               bank_statement=Statement, payslip=Statement, tax_return=Statement)
 
 FIELD_TYPES = {'str':str, 'text':str, 'int':int, 'float':float, 'number':float, 'num':float, 'bool':bool,
                'list':list, 'dict':dict, 'strs':list[str], 'dicts':list[dict],
@@ -185,10 +230,12 @@ def _norm(obj, schema) -> dict:
 
 # %% ../nbs/01_schema.ipynb #6643e3bd001840f4
 DATE_FIELDS = ('date', 'dates', 'due', 'due_date', 'start_date', 'end_date', 'effective_date',
-               'expiry', 'expiry_date', 'renewal', 'updated', 'issued', 'period_start', 'period_end')
+               'expiry', 'expiry_date', 'renewal', 'updated', 'issued', 'period_start', 'period_end',
+               'date_of_birth', 'pay_date')
 YEAR_FIELDS = ('year',)
 MONEY_FIELDS = ('subtotal', 'tax', 'total', 'amount', 'price', 'unit_price', 'balance',
-                'discount', 'shipping', 'paid', 'due_amount')
+                'discount', 'shipping', 'paid', 'due_amount', 'opening_balance', 'closing_balance',
+                'gross', 'net', 'deductions', 'taxable_income')
 CURRENCIES = {'$': 'USD', 'US$': 'USD', '€': 'EUR', '£': 'GBP', '₹': 'INR', '¥': 'JPY'}
 _MONTHS = {m: i+1 for i, m in enumerate(
     ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'))}
@@ -259,7 +306,7 @@ def money(v) -> tuple:
 
 # %% ../nbs/01_schema.ipynb #ffe96fc6247147a2
 BLANKS = {'n/a', 'na', 'none', 'null', 'nil', 'unknown', 'not stated', 'not specified', 'tbd', '-', '--'}
-ROW_MONEY = ('amount', 'unit_price', 'price', 'qty', 'quantity')
+ROW_MONEY = ('amount', 'unit_price', 'price', 'qty', 'quantity', 'balance')
 
 def _err(f, v, why) -> AttrDict: return AttrDict(field=f, value=v, why=why)
 def _is_rows(t) -> bool: return get_origin(t) is list and get_args(t)[:1] == (dict,)
@@ -384,14 +431,61 @@ Rules:
 
 
 # %% ../nbs/01_schema.ipynb #875af6df
+def cite_schema(schema) -> type:
+    "`schema` with a `<field>_quote` string beside each field, for the span the value was read from."
+    flds = [(f.name, f.type, None if f.default is MISSING else f.default) for f in fields(schema)]
+    return make_dataclass(f'{schema.__name__}Cited', flds + [(f'{n}_quote', str, '') for n, *_ in flds],
+        namespace=dict(__doc__=(schema.__doc__ or '').strip() + '\n\nEach `<field>_quote` is the shortest '
+            'span of the document, copied verbatim, that the field was read from; empty when the field is.'))
+
+# %% ../nbs/01_schema.ipynb #1e301b9a
 def structured(ch,                # a `rishi.Chat`, e.g. from `new_chat`
                prompt:str,        # the document and the instruction
                schema,            # the dataclass the reply must fill
                sp:str='',         # system prompt for the extraction
+               cite:bool=False,   # return `{field: {value, quote}}`, the quote copied from the document
 ) -> dict:
     'A structured reply as a dict, retried as a plain JSON reply when the constrained call fails.'
+    if cite:
+        d = structured(ch, prompt, cite_schema(schema), sp)
+        return {f.name: dict(value=d.get(f.name), quote=d.get(f'{f.name}_quote') or '') for f in fields(schema)}
     try: return _norm(ch.structured(prompt, schema, sp=sp), schema)
     except Exception as e:
         warnings.warn(f'{type(e).__name__} on a constrained call for {schema.__name__} '
                       f'({str(e)[:150]}); retrying as a JSON reply.')
         return _norm(_json_reply(ch, prompt, schema, sp), schema)
+
+# %% ../nbs/01_schema.ipynb #6408d729
+def _sq(s) -> str: return re.sub(r'\s+', ' ', str(s)).strip().lower()
+
+def _page_blocks(pg) -> list:
+    'The text of each block on one page: the blocks a reader returned, else its paragraphs.'
+    if isinstance(pg, str): return re.split(r'\n\s*\n', pg)
+    if bs := pg.get('blocks'): return [b if isinstance(b, str) else (b.get('text') or '') for b in bs]
+    return re.split(r'\n\s*\n', pg.get('text') or '')
+
+def _needles(v) -> list:
+    'The strings a value could be printed as, quote first.'
+    q, v = (v.get('quote'), v.get('value')) if isinstance(v, dict) and 'value' in v else (None, v)
+    out = [q] if q else []
+    if isinstance(v, bool) or v in (None, '') or isinstance(v, (list, dict)): return out
+    if isinstance(v, (int, float)):
+        if not v: return out
+        out += [f'{v:,.2f}', f'{v:.2f}'] + ([f'{int(v):,}', str(int(v))] if v == int(v) else [str(v)])
+    else: out.append(str(v))
+    return out
+
+def locate(flds:dict,    # `structured(..., cite=True)` output, or plain `{field: value}`
+           pages,        # page texts, `{page, text, blocks}` rows, or `{page: text}`
+) -> dict:
+    'Where each field was read: `{field: {page, block}}` for the fields whose quote or value is on a page.'
+    rows = pages.items() if isinstance(pages, dict) else ((pg.get('page', i) if isinstance(pg, dict) else i, pg)
+                                                           for i, pg in enumerate(pages))
+    blocks = [(n, b, _sq(t)) for n, pg in rows for b, t in enumerate(_page_blocks(pg))]
+    out = {}
+    for f, v in (flds or {}).items():
+        for nd in map(_sq, _needles(v)):
+            pat = re.compile(r'(?<!\w)' + re.escape(nd) + r'(?!\w)')
+            if hit := next(((n, b) for n, b, t in blocks if nd and pat.search(t)), None):
+                out[f] = dict(page=hit[0], block=hit[1]); break
+    return out

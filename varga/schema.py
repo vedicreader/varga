@@ -1,4 +1,4 @@
-"""the shape an extraction fills, and the call that fills it
+"""The fields a document holds, and asking a model to fill them
 
 Docs: https://vedicreader.github.io/varga/schema.html.md"""
 
@@ -202,7 +202,7 @@ def dyn_schema(spec,                    # 'vendor:str, total:float, items:dicts'
                name:str='Extracted',    # class name, which the model sees
                doc:str=None,            # class docstring, which the model also sees
 ) -> type:
-    'A dataclass built at runtime from a field spec: the shape of an answer, named in one string.'
+    "Build a dataclass at run time from a field description such as `'vendor:str, total:float'`."
     if isinstance(spec, str): spec = [p for p in re.split(r'[,\n]', spec) if p.strip()]
     if isinstance(spec, dict): spec = [f'{k}:{v}' for k, v in spec.items()]
     flds = []
@@ -216,7 +216,7 @@ def dyn_schema(spec,                    # 'vendor:str, total:float, items:dicts'
 
 # %% ../nbs/01_schema.ipynb #86058550
 def as_schema(spec, name:str='Extracted', doc:str=None) -> type:
-    'Whatever names a shape, as a dataclass: a `SCHEMAS` key, a dataclass, or a `dyn_schema` spec.'
+    "Return a dataclass for a built-in schema name, a dataclass, or a `dyn_schema` description."
     if is_dataclass(spec): return spec
     if isinstance(spec, str) and spec.strip() in SCHEMAS: return SCHEMAS[spec.strip()]
     return dyn_schema(spec, name=name, doc=doc)
@@ -259,7 +259,7 @@ def _yr(y, ref:int) -> int:
 def _mon(w:str) -> int|None: return _MONTHS.get(w[:3].lower())
 
 def date_order(vals) -> str|None:
-    "Whether this document writes `dd/mm` or `mm/dd`, from whichever of its own dates has a part over 12."
+    "Return `'dmy'` or `'mdy'` from the first of the dates `vals` that has a part over 12, or None."
     for v in vals:
         if (m := _NUM3.match(str(v or '').strip())) and len(m.group(1)) != 4:
             if int(m.group(1)) > 12: return 'dmy'
@@ -269,7 +269,7 @@ def iso_date(v,               # whatever a model put in a date field
              ref:int=None,    # the year the document was stored under; supplies a year the value omits
              order:str=None   # 'dmy' or 'mdy' from `date_order`, to read 01/03/2024 the way the document does
 ) -> tuple:
-    "One date as `(YYYY-MM-DD, why)`. `why` is set and the date is `''` when it cannot be read."
+    "Read one date as `(YYYY-MM-DD, why)`, with an empty date and a reason when it cannot be read."
     from datetime import date, datetime
     s = re.sub(r'\s+', ' ', str(v or '')).strip().rstrip('.')
     s = _TIME.sub('', s)   # a model asked for a date sometimes answers with an ISO instant
@@ -294,7 +294,7 @@ def iso_date(v,               # whatever a model put in a date field
     return '', f'{s!r} is not a date'
 
 def money(v) -> tuple:
-    'One amount as `(float, why)`. Strips the currency and the thousands separator the prompt forbade.'
+    "Read one amount as `(float, why)`, removing the currency and thousands separators."
     if isinstance(v, bool): return 0.0, f'{v!r} is not an amount'
     if isinstance(v, (int, float)): return float(v), None
     s = str(v or '').strip()
@@ -370,7 +370,7 @@ def check_fields(schema,          # the dataclass the fields were pulled for
                  flds:dict,       # what the model returned
                  ref:float=None,  # epoch seconds of the document itself; supplies a year a date omits
 ) -> tuple:
-    'Fields with dates as ISO and amounts as numbers, and an error per value that could not be read.'
+    "Return the fields with dates in ISO form and amounts as numbers, and a list of the values that could not be read."
     from datetime import datetime
     yr = datetime.fromtimestamp(ref).year if ref else None
     types, out, errs = {f.name: f.type for f in fields(schema)}, dict(flds or {}), L()
@@ -395,7 +395,7 @@ def check_fields(schema,          # the dataclass the fields were pulled for
 
 # %% ../nbs/01_schema.ipynb #d62421fb
 def schema_str(schema) -> str:
-    "A schema written out for a model to read: its docstring, then `name: type` per field."
+    "Write a schema out for a model to read: its docstring, then `name: type` for each field."
     def ty(t):
         if isinstance(t, str): return t
         return str(t).replace('typing.', '') if get_origin(t) else getattr(t, '__name__', str(t))
@@ -432,7 +432,7 @@ Rules:
 
 # %% ../nbs/01_schema.ipynb #875af6df
 def cite_schema(schema) -> type:
-    "`schema` with a `<field>_quote` string beside each field, for the span the value was read from."
+    "Return `schema` with a `<field>_quote` string beside each field, for the text the value was read from."
     flds = [(f.name, f.type, None if f.default is MISSING else f.default) for f in fields(schema)]
     return make_dataclass(f'{schema.__name__}Cited', flds + [(f'{n}_quote', str, '') for n, *_ in flds],
         namespace=dict(__doc__=(schema.__doc__ or '').strip() + '\n\nEach `<field>_quote` is the shortest '
@@ -445,7 +445,7 @@ def structured(ch,                # a `rishi.Chat`, e.g. from `new_chat`
                sp:str='',         # system prompt for the extraction
                cite:bool=False,   # return `{field: {value, quote}}`, the quote copied from the document
 ) -> dict:
-    'A structured reply as a dict, retried as a plain JSON reply when the constrained call fails.'
+    "Ask a chat model to fill `schema` and return a dictionary, retrying as a plain JSON reply when the constrained call fails."
     if cite:
         d = structured(ch, prompt, cite_schema(schema), sp)
         return {f.name: dict(value=d.get(f.name), quote=d.get(f'{f.name}_quote') or '') for f in fields(schema)}
@@ -478,7 +478,7 @@ def _needles(v) -> list:
 def locate(flds:dict,    # `structured(..., cite=True)` output, or plain `{field: value}`
            pages,        # page texts, `{page, text, blocks}` rows, or `{page: text}`
 ) -> dict:
-    'Where each field was read: `{field: {page, block}}` for the fields whose quote or value is on a page.'
+    "Return `{field: {page, block}}` for each field whose quote or value is found on a page."
     rows = pages.items() if isinstance(pages, dict) else ((pg.get('page', i) if isinstance(pg, dict) else i, pg)
                                                            for i, pg in enumerate(pages))
     blocks = [(n, b, _sq(t)) for n, pg in rows for b, t in enumerate(_page_blocks(pg))]

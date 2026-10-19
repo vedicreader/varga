@@ -1,4 +1,4 @@
-"""what kind of thing a document is, decided by cues before a model is asked
+"""Deciding what kind of document a text is, from evidence in the text
 
 Docs: https://vedicreader.github.io/varga/core.html.md"""
 
@@ -73,7 +73,7 @@ def signals(text:str,            # the document text
             ner:bool=True,       # run entity extraction
             limit:int=20,        # entities kept
 ) -> AttrDict:
-    'Countable evidence in one document: `counts` per signal, plus the entities it names.'
+    "Count the signals and names in one document and return the counts, the name labels and the names found."
     counts = {k: len(p.findall(text or '')) for k, p in _SIG.items()}
     found = L(_noun_ents((text or '')[:NER_CHARS]) if ner else ()).map(
         lambda t: AttrDict(label=t[1], text=t[0]))
@@ -246,7 +246,7 @@ KIND_HINT = dict(youtube='transcript', arxiv='paper', code='code')
 MIN_SCORE, MIN_MARGIN, KIND_BONUS = 0.4, 0.12, 0.2
 
 def cue_scores(text:str, sig=None) -> dict:
-    'Every doctype scored against `text`, best first: the categorisation no model is needed for.'
+    "Score every document type against `text` from 0 to 1 and return the scores, best first."
     sig = sig if sig is not None else signals(text)
     ner, out = sig.method.startswith('ner'), {}
     for lbl, d in DOCTYPES.items():
@@ -266,7 +266,7 @@ def guess_type(text:str,             # the document text
                min_score:float=MIN_SCORE,    # below this the cues have not decided
                min_margin:float=MIN_MARGIN,  # runner-up this close means they have not either
 ) -> AttrDict:
-    'The best doctype for `text` from cues alone, and whether that guess is worth trusting.'
+    "Return the best document type for `text` from its evidence, with its score, its margin and whether it is decisive."
     sig = sig if sig is not None else signals(text)
     sc = cue_scores(text, sig)
     if kind in KIND_HINT: sc[KIND_HINT[kind]] = round(min(1.0, sc[KIND_HINT[kind]] + KIND_BONUS), 3)

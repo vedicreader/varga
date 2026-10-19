@@ -14,7 +14,7 @@ uv add varga            # document types, with no model and no network
 uv add varga rishi      # and a chat model for `structured` to ask
 ```
 
-varga depends only on fastcore and [rahasya](https://github.com/vedicreader/rahasya). [`structured`](https://vedicreader.github.io/varga/schema.html#structured) needs a chat object, such as a `rishi.Chat`, and its JSON fallback imports `urai`, which rishi installs; both are imported only when [`structured`](https://vedicreader.github.io/varga/schema.html#structured) runs.
+varga depends only on fastcore and [rahasya](https://github.com/vedicreader/rahasya). [`structured`](https://vedicreader.github.io/varga/schema.html#structured) needs a chat object, such as a `rishi.Chat`, but varga imports nothing to use it: any object with a `.structured` method and a call that returns its reply will do.
 
 ## What kind of document is it
 

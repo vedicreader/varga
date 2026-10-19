@@ -2,6 +2,9 @@
 
 <!-- do not remove -->
 
+## 0.0.7
+- `structured`'s JSON fallback works without urai, which varga does not depend on: it reads the reply text, strips `<think>` reasoning and takes the last ```json fence itself. CI failed on this.
+
 ## 0.0.6
 - Doctypes `id_card`, `passport`, `bank_statement`, `payslip`, `tax_return`, with `sensitive=True`; `clinical_record` is sensitive too
 - `SENSITIVE`, and `guess_type(...).sensitive`

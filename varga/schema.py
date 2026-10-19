@@ -403,19 +403,33 @@ def schema_str(schema) -> str:
             + ',\n'.join(f'  "{f.name}": {ty(f.type)}' for f in fields(schema)) + '\n}')
 
 # %% ../nbs/01_schema.ipynb #3dae58c8
+_think_re = re.compile(r'<think>.*?</think>', re.DOTALL)
+
 def _split_reasoning(text:str) -> str:
-    'The answer with any reasoning stripped.'
-    from urai import split_think
-    return split_think(text)[0].strip()
+    'The answer with any `<think>` reasoning stripped, including a block cut off or opened by a template prefill.'
+    t = _think_re.sub('', text or '')
+    if '<think>' in t: t = t.partition('<think>')[0]
+    elif '</think>' in t: t = t.partition('</think>')[2]
+    return t.strip()
+
+def _resp_text(r) -> str:
+    'The text of a chat reply: a string, or a dict whose `content` is a string or a list of text parts.'
+    if isinstance(r, str): return r
+    c = r.get('content', '') if isinstance(r, dict) else ''
+    return c if isinstance(c, str) else ''.join(o.get('text', '') for o in c if isinstance(o, dict) and o.get('type') == 'text')
+
+def _fence(text:str, tag:str='json') -> str:
+    'The last ```tag fenced block in `text`, else the whole stripped text.'
+    ms = re.findall(rf'^```{tag}[ \t]*\n(.*?)\n```', text or '', re.DOTALL | re.MULTILINE)
+    return ms[-1] if ms else (text or '').strip()
 
 # %% ../nbs/01_schema.ipynb #bf7b950f
 def _json_reply(ch, prompt:str, schema, sp:str='') -> object:
     'Ask for the shape as a JSON object in prose and rebuild it, with the model left unconstrained.'
     ch.hist = []
-    from urai import resp_text, extract_fence
-    txt = resp_text(ch(f'{sp}\n\n{prompt}\n\nReply with only a JSON object in a ```json fence, with '
+    txt = _resp_text(ch(f'{sp}\n\n{prompt}\n\nReply with only a JSON object in a ```json fence, with '
                        f'exactly these keys and types:\n\n{schema_str(schema)}'))
-    d = json.loads(extract_fence(_split_reasoning(txt), 'json'))
+    d = json.loads(_fence(_split_reasoning(txt)))
     nms = {f.name for f in fields(schema)}
     return schema(**{k: v for k, v in d.items() if k in nms})
 

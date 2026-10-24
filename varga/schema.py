@@ -11,10 +11,10 @@ __all__ = ['SCHEMAS', 'FIELD_TYPES', 'DATE_FIELDS', 'YEAR_FIELDS', 'MONEY_FIELDS
            'schema_str', 'cite_schema', 'structured', 'locate']
 
 # %% ../nbs/01_schema.ipynb #e423da84
-import json, re, warnings
+import json, math, re, warnings
 from dataclasses import dataclass, fields, is_dataclass, make_dataclass, asdict, MISSING
 from typing import get_origin, get_args
-from fastcore.all import AttrDict, L
+from fastcore.all import AttrDict, L, str2bool
 
 # %% ../nbs/01_schema.ipynb #a125d2cb
 @dataclass
@@ -248,7 +248,7 @@ _MY   = re.compile(r'^([a-z]{3,9})\.?\s+(\d{4})$', re.I)
 _YEAR = re.compile(r'^(\d{4})$')
 _YEAR4 = re.compile(r'\d{4}')
 _MAIL = re.compile(r'^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$')
-_MONEY = re.compile(r'-?\d[\d,]*(?:\.\d+)?')
+_MONEY = re.compile(r'(?<![\d,.])-?(?:\d{1,2}(?:,\d{2})+,\d{3}|\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?![,.]?\d)')
 _TIME = re.compile(r'[T ]\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\s*(?:Z|[+-]\d{2}:?\d{2})?$')
 
 def _yr(y, ref:int) -> int:
@@ -296,11 +296,15 @@ def iso_date(v,               # whatever a model put in a date field
 def money(v) -> tuple:
     "Read one amount as `(float, why)`, removing the currency and thousands separators."
     if isinstance(v, bool): return 0.0, f'{v!r} is not an amount'
-    if isinstance(v, (int, float)): return float(v), None
+    if isinstance(v, (int, float)):
+        try: n = float(v)
+        except OverflowError: return 0.0, f'{v!r} is not an amount'
+        return (n, None) if math.isfinite(n) else (0.0, f'{v!r} is not an amount')
     s = str(v or '').strip()
     if not s: return 0.0, None
     if not (m := _MONEY.search(s)): return 0.0, f'{s!r} is not an amount'
     n = float(m.group(0).replace(',', ''))
+    if not math.isfinite(n): return 0.0, f'{s!r} is not an amount'
     return (-n if s.startswith('(') and s.endswith(')') else n), None
 
 
@@ -339,10 +343,22 @@ def _scalar(kind:str, v, yr:int, order:str=None) -> tuple:
 def _typed(t, v) -> tuple:
     'A value forced into the type its field declares.'
     if _is_list(t): return ([] if v is None else list(v) if isinstance(v, (list, tuple)) else [v]), None
+    if t is bool:
+        if v is None or isinstance(v, bool): return v, None
+        if type(v) is int and v in (0, 1): return bool(v), None
+        if isinstance(v, str):
+            if not (s := _blank(v).strip()): return '', None
+            try: return str2bool(s), None
+            except (TypeError, ValueError): pass
+        return '', f'{v!r} is not true or false'
     if t in (float, int):
         n, why = money(_blank(v))
         return (int(n) if t is int else n), why
-    if t is str: return (', '.join(map(str, v)) if isinstance(v, (list, tuple)) else _blank(v)), None
+    if t is str:
+        if isinstance(v, (list, tuple)): return ', '.join(map(str, v)), None
+        v = _blank(v)
+        if isinstance(v, (int, float)): return str(v), None
+        return ('', f'{v!r} is not text') if isinstance(v, (dict, set)) else (v, None)
     return v, None
 
 def _row(nm:str, r, errs:L) -> dict:
@@ -354,7 +370,7 @@ def _row(nm:str, r, errs:L) -> dict:
     for k in ROW_MONEY:
         if out.get(k) in (None, ''): continue
         n, why = money(out[k])
-        if why: errs.append(_err(f'{nm}[].{k}', out[k], why))
+        if why: errs.append(_err(f'{nm}[].{k}', out[k], why)); out[k] = ''
         else: out[k] = int(n) if k in ('qty', 'quantity') and n == int(n) else n
     return out
 

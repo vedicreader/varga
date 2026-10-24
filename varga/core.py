@@ -16,7 +16,7 @@ from rahasya import NER_CHARS, PERSON_HON
 
 # %% ../nbs/00_core.ipynb #15f3fd04
 SIGNALS = dict(
-    # what a document *contains*, as cheaply as a regex can tell: the evidence a type is scored on
+    # the signals that `DOCTYPES` entries can need
     money    = r'[$€£¥₹]\s?\d[\d,]*(?:\.\d+)?|\b\d[\d,]*\.\d{2}\s?(?:usd|eur|gbp|inr|jpy|cad|aud)\b'
                r'|\b(?:usd|eur|gbp|inr|jpy|cad|aud)\s?\d[\d,]*',
     date     = r'\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[/.]\d{1,2}[/.]\d{2,4}\b'
@@ -53,7 +53,7 @@ _LAW_INST = re.compile(
 
 # %% ../nbs/00_core.ipynb #b9d6a10c
 def _noun_ents(text:str, limit:int=40) -> L:
-    'ORG, PERSON and LAW entities via regex; no model weight.'
+    'Return `(name, label)` pairs for names in `text`, found with regular expressions. The label is `ORG` for an organisation, `PERSON` for a person or `LAW` for a law.'
     seen, out = set(), L()
     def _add(t, label):
         n = re.sub(r'\s+', ' ', t.strip())[:60]
@@ -70,10 +70,10 @@ def _noun_ents(text:str, limit:int=40) -> L:
 
 # %% ../nbs/00_core.ipynb #ef3ce3c0
 def signals(text:str,            # the document text
-            ner:bool=True,       # run entity extraction
-            limit:int=20,        # entities kept
+            ner:bool=True,       # also find names, in the first `NER_CHARS` characters
+            limit:int=20,        # most names to return
 ) -> AttrDict:
-    "Count the signals and names in one document and return the counts, the name labels and the names found."
+    "Return the signal counts, the name labels and the names found in `text`. `method` is `ner+regex` when at least one name is found, and `regex` otherwise."
     counts = {k: len(p.findall(text or '')) for k, p in _SIG.items()}
     found = L(_noun_ents((text or '')[:NER_CHARS]) if ner else ()).map(
         lambda t: AttrDict(label=t[1], text=t[0]))
@@ -86,8 +86,7 @@ def signals(text:str,            # the document text
 
 # %% ../nbs/00_core.ipynb #e77bc6be
 DOCTYPES = {
-    # label: the cue phrases that are evidence for it, the regex signals it needs, and the
-    # entity labels it expects
+    # label: cue phrases, needed signals and expected name labels
     'invoice': dict(needs=('money',), ents=('ORG',), cues=(
         r'\b(?:tax )?invoice\b', r'\b(?:amount|balance|total) due\b', r'\bbill(?:ed)? to\b|\bremit\b',
         r'\bpayment terms?\b|\bnet \d{1,3}\b', r'\bsub-?total\b', r'\b(?:vat|gst|sales tax)\b')),
@@ -208,7 +207,7 @@ DOCTYPES = {
     'article': dict(needs=(), ents=('PERSON', 'ORG'), cues=(
         r'\bpublished\b|\bposted (?:on|by)\b', r'\bread more\b|\bshare this\b|\bcomments?\b',
         r'\bsubscribe\b|\bnewsletter\b', r'\baccording to\b', r'\btags?:|\bcategor(?:y|ies):')),
-    # --- sensitive labels: records about one person that should not leave the machine ---
+    # --- sensitive labels: records about one person ---
     'id_card': dict(needs=('date',), ents=(), sensitive=True, cues=(
         r'\b(?:national )?identity card\b|\bid(?:entification)? card\b|\bdriv(?:er\'?s|ing) licen[cs]e\b|\bresiden(?:ce|t) (?:permit|card)\b',
         r'\b(?:card|document|licen[cs]e|id) (?:no|number|#)\b|\bpersonal (?:no|number|code)\b|\baadhaar\b',
@@ -241,12 +240,11 @@ DOCTYPES = {
 _CUES = {l: [re.compile(c, re.I|re.M) for c in d['cues']] for l, d in DOCTYPES.items()}
 SENSITIVE = {l for l, d in DOCTYPES.items() if d.get('sensitive')}
 
-# arrival kind is strong evidence (youtube -> transcript)
 KIND_HINT = dict(youtube='transcript', arxiv='paper', code='code')
 MIN_SCORE, MIN_MARGIN, KIND_BONUS = 0.4, 0.12, 0.2
 
 def cue_scores(text:str, sig=None) -> dict:
-    "Score every document type against `text` from 0 to 1 and return the scores, best first."
+    "Return the score from 0 to 1 of every document type for `text`, as a dictionary with the best type first."
     sig = sig if sig is not None else signals(text)
     ner, out = sig.method.startswith('ner'), {}
     for lbl, d in DOCTYPES.items():
@@ -261,12 +259,12 @@ def cue_scores(text:str, sig=None) -> dict:
     return dict(sorted(out.items(), key=lambda kv: -kv[1]))
 
 def guess_type(text:str,             # the document text
-               sig=None,             # a signals() result, computed if not given
-               kind:str=None,        # the vault kind that acquired it, if known
-               min_score:float=MIN_SCORE,    # below this the cues have not decided
-               min_margin:float=MIN_MARGIN,  # runner-up this close means they have not either
+               sig=None,             # a `signals` result; computed when None
+               kind:str=None,        # how the document arrived: `youtube`, `arxiv` or `code`
+               min_score:float=MIN_SCORE,    # a lower score is not decisive
+               min_margin:float=MIN_MARGIN,  # a smaller margin over the runner-up is not decisive
 ) -> AttrDict:
-    "Return the best document type for `text` from its evidence, with its score, its margin and whether it is decisive."
+    "Return the best document type for `text` with its score, its margin and whether the result is decisive."
     sig = sig if sig is not None else signals(text)
     sc = cue_scores(text, sig)
     if kind in KIND_HINT: sc[KIND_HINT[kind]] = round(min(1.0, sc[KIND_HINT[kind]] + KIND_BONUS), 3)
